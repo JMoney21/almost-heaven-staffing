@@ -11,16 +11,29 @@ import {
   endContractAction,
   deleteContractAction,
 } from "./actions";
+import LoginAccessCard from "./LoginAccessCard";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ error?: string; success?: string }>;
 };
 
+function safeDecode(value?: string) {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export default async function EmployeeDetailPage({ params, searchParams }: PageProps) {
+  // ✅ Next 15+: params/searchParams are Promises and must be unwrapped
   const { id: employeeId } = await params;
   const sp = searchParams ? await searchParams : undefined;
-  const errorMsg = sp?.error ? decodeURIComponent(sp.error) : null;
+
+  const errorMsg = safeDecode(sp?.error);
+  const successMsg = safeDecode(sp?.success);
 
   if (!employeeId) {
     return (
@@ -45,22 +58,40 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
 
   if (!profile || (profile.role !== "manager" && profile.role !== "admin")) redirect("/");
 
-  // EMPLOYEE
+  // EMPLOYEE ✅ includes user_id + disabled for login tools
   const { data: employee, error: empErr } = await supabase
     .from("employees")
-    .select("id, full_name, email, phone, status")
+    .select("id, full_name, email, phone, status, user_id, disabled")
     .eq("id", employeeId)
     .maybeSingle();
 
-  if (empErr || !employee) redirect("/manager/employees");
+  // ✅ IMPORTANT: instead of silently redirecting back, show the real reason (debug)
+  if (empErr || !employee) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <h1 className="text-2xl font-black">Employee not found / blocked</h1>
+          <p className="text-sm font-semibold text-white/80">
+            This page redirected you before. Now it shows the real cause.
+          </p>
+          <pre className="rounded-2xl bg-white/10 p-4 text-xs whitespace-pre-wrap">
+            employeeId param: {employeeId}
+            {"\n\n"}
+            empErr: {empErr ? JSON.stringify(empErr, null, 2) : "null"}
+          </pre>
+          <div className="text-xs font-semibold text-white/70">
+            Most common causes:
+            {"\n"}• Your list page is linking with the wrong id (must be employees.id)
+            {"\n"}• RLS/policy blocks selecting this employee
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /**
    * JOB_SELECT:
    * Only include columns that exist on your jobs table.
-   * You said: "complete job details besides description"
-   * So we intentionally do NOT select "description".
-   *
-   * If you get another "column jobs.X does not exist", remove X from this list.
    */
   const JOB_SELECT = `
     id,
@@ -107,12 +138,24 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
     .eq("employee_id", employeeId)
     .order("created_at", { ascending: false });
 
-  const totalPoints = (transactions ?? []).reduce((sum: number, t: any) => sum + (t.points ?? 0), 0);
+  const totalPoints = (transactions ?? []).reduce((sum: number, t: any) => sum + (Number(t.points) || 0), 0);
 
   return (
     <div className="min-h-screen bg-[#061A33] p-10 text-white">
       <div className="mx-auto max-w-4xl space-y-8">
         {errorMsg ? <div className="rounded-xl bg-amber-500/20 p-3 text-xs font-bold">{errorMsg}</div> : null}
+        {successMsg ? (
+          <div className="rounded-xl bg-emerald-500/20 p-3 text-xs font-bold">{successMsg}</div>
+        ) : null}
+
+        {/* ✅ LOGIN TOOLS */}
+        <LoginAccessCard
+          employeeId={employee.id}
+          employeeEmail={employee.email ?? ""}
+          employeeName={employee.full_name ?? ""}
+          employeeUserId={(employee as any).user_id ?? null}
+          disabled={Boolean((employee as any).disabled)}
+        />
 
         {/* EMPLOYEE */}
         <div className="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
@@ -271,7 +314,6 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                             <span className="font-black">{c.start_date}</span>
                           </div>
 
-                          {/* Debug for Unknown job */}
                           <div className="mt-1 text-[11px] text-slate-400">job_id: {String(c.job_id ?? "NULL")}</div>
                         </div>
 
@@ -296,7 +338,8 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                         </div>
                       ) : (
                         <div className="mt-2 text-sm font-semibold text-slate-600">
-                          No job found for this contract. That means the contract’s <span className="font-black">job_id</span> is missing or doesn’t match a jobs.id row.
+                          No job found for this contract. That means the contract’s{" "}
+                          <span className="font-black">job_id</span> is missing or doesn’t match a jobs.id row.
                         </div>
                       )}
                     </div>

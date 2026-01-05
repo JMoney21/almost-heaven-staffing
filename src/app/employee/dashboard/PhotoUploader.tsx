@@ -1,146 +1,138 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-
-// ✅ Pick ONE of these imports depending on what your project uses.
-// If this import errors, scroll down to "If your import path differs".
+import { useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-// import { createClient } from "@/lib/supabase/browser";
 
-type PhotoUploaderProps = {
+type Props = {
   userId: string;
-  currentAvatarUrl: string | null;
-  /**
-   * Optional: runs after upload succeeds.
-   * Useful if you want the parent page to refresh data.
-   */
-  onUploaded?: (publicUrl: string) => void;
+  currentAvatarUrl: string | null; // stores STORAGE PATH, not public URL
+  onUploaded?: (signedUrl: string) => void;
 };
+
+const BUCKET = "avatars"; // your Supabase Storage bucket name
 
 export default function PhotoUploader({
   userId,
   currentAvatarUrl,
   onUploaded,
-}: PhotoUploaderProps) {
+}: Props) {
   const supabase = useMemo(() => createClient(), []);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(currentAvatarUrl);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    setAvatarUrl(currentAvatarUrl);
-  }, [currentAvatarUrl]);
-
-  const openFilePicker = () => {
-    setError(null);
-    setSuccessMsg(null);
-    inputRef.current?.click();
-  };
-
-  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  async function handleFile(file: File | null) {
     if (!file) return;
 
-    setError(null);
-    setSuccessMsg(null);
-
-    // Basic validation
-    const allowed = ["image/png", "image/jpeg", "image/webp"];
-    if (!allowed.includes(file.type)) {
-      setError("Please upload a PNG, JPG, or WEBP image.");
-      e.target.value = "";
+    // Validate image
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file.");
       return;
     }
 
-    // Optional size limit (5MB)
-    const maxBytes = 5 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      setError("Image too large. Please use an image under 5MB.");
-      e.target.value = "";
+    // Validate size
+    const maxMB = 8;
+    if (file.size > maxMB * 1024 * 1024) {
+      alert(`File is too large. Please upload an image under ${maxMB}MB.`);
       return;
     }
 
-    setIsUploading(true);
+    setUploading(true);
 
     try {
-      // ✅ Store inside a user folder to avoid collisions
-      const fileExt = file.name.split(".").pop() || "png";
-      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+      // Ensure logged in
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Not logged in.");
 
-      // ✅ IMPORTANT: Make sure you have a Supabase Storage bucket named "avatars"
-      // If your bucket name is different, change "avatars" below.
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
+      // Stable path (upsert replaces existing image)
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `employees/${userId}/avatar.${ext}`;
+
+      // Upload to storage
+      const { error: uploadErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, {
           upsert: true,
           contentType: file.type,
+          cacheControl: "3600",
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadErr) throw uploadErr;
 
-      // Get a URL for display
-      const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      // Save STORAGE PATH to DB (not a public URL)
+      const { error: dbErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: path })
+        .eq("user_id", userId);
 
-      const publicUrl = data.publicUrl;
-      setAvatarUrl(publicUrl);
-      setSuccessMsg("Photo updated!");
-      onUploaded?.(publicUrl);
+      if (dbErr) throw dbErr;
 
-      // NOTE:
-      // If you also want to save this URL to a table (profiles/employees/etc),
-      // do it here. I’m not writing that part because your table name/column
-      // isn’t shown in the logs, and guessing could break builds.
-    } catch (err: any) {
-      setError(err?.message ?? "Upload failed. Please try again.");
+      // Create signed URL for immediate preview
+      const { data: signed, error: signErr } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(path, 60 * 60); // 1 hour
+
+      if (signErr) throw signErr;
+
+      // Cache-bust so image updates immediately
+      const signedUrl = `${signed.signedUrl}&t=${Date.now()}`;
+
+      onUploaded?.(signedUrl);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message ?? "Upload failed");
     } finally {
-      setIsUploading(false);
-      // reset input so selecting the same file again still triggers change
-      if (inputRef.current) inputRef.current.value = "";
+      setUploading(false);
     }
-  };
+  }
+
+  async function removePhoto() {
+    if (!confirm("Remove your profile photo?")) return;
+
+    setUploading(true);
+    try {
+      const { error: dbErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("user_id", userId);
+
+      if (dbErr) throw dbErr;
+
+      // Clear UI
+      onUploaded?.("");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message ?? "Could not remove photo");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
-    <div className="w-full">
-      <div className="flex items-center gap-4">
-        <div className="h-16 w-16 overflow-hidden rounded-full border bg-white">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={avatarUrl ?? "/nurse.png"}
-            alt="Profile photo"
-            className="h-full w-full object-cover"
-          />
-        </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-[#F6B400] px-4 py-2 text-xs font-extrabold text-[#0B2545] hover:brightness-95">
+        {uploading ? "Uploading..." : "Upload Photo"}
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={uploading}
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        />
+      </label>
 
-        <div className="flex flex-col">
-          <button
-            type="button"
-            onClick={openFilePicker}
-            disabled={isUploading}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {isUploading ? "Uploading..." : "Upload new photo"}
-          </button>
+      {currentAvatarUrl && (
+        <button
+          type="button"
+          onClick={removePhoto}
+          disabled={uploading}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          Remove
+        </button>
+      )}
 
-          <p className="mt-1 text-xs text-gray-500">
-            PNG, JPG, or WEBP • max 5MB
-          </p>
-        </div>
+      <div className="text-xs font-semibold text-slate-500">
+        JPG/PNG, up to 8MB.
       </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        onChange={onFileSelected}
-        className="hidden"
-      />
-
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-      {successMsg && <p className="mt-2 text-sm text-green-600">{successMsg}</p>}
     </div>
   );
 }

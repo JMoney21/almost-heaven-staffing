@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Almost Heaven Staffing",
-  description: "Providing dependable, compassionate nursing professionals to healthcare facilities, with a focus on quality care, integrity, and reliability—because every patient deserves to feel almost heaven.",
+  description:
+    "Providing dependable, compassionate nursing professionals to healthcare facilities, with a focus on quality care, integrity, and reliability—because every patient deserves to feel almost heaven.",
 };
 
 export default function RootLayout({
@@ -23,9 +24,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="min-h-full bg-transparent">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-transparent`}
       >
         {children}
       </body>

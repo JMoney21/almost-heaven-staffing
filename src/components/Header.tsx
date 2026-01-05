@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 type NavItem =
   | { type: "link"; label: string; href: string }
@@ -37,9 +38,15 @@ function isActivePath(pathname: string, href: string) {
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [resourcesOpenDesktop, setResourcesOpenDesktop] = useState(false);
   const [resourcesOpenMobile, setResourcesOpenMobile] = useState(false);
+
+  // ✅ Auth state (for top-bar button)
+  const supabase = useMemo(() => createSupabaseBrowser(), []);
+  const [authed, setAuthed] = useState<boolean>(false);
 
   // Close menus on route change
   useEffect(() => {
@@ -48,10 +55,35 @@ export default function Header() {
     setResourcesOpenMobile(false);
   }, [pathname]);
 
+  // ✅ Determine if logged in (and stay updated)
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+      setAuthed(Boolean(data?.user));
+    }
+
+    load();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(Boolean(session?.user));
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
   const resources = useMemo(
-    () => NAV.find((x) => x.type === "dropdown" && x.label === "Resources") as
-      | Extract<NavItem, { type: "dropdown" }>
-      | undefined,
+    () =>
+      NAV.find((x) => x.type === "dropdown" && x.label === "Resources") as
+        | Extract<NavItem, { type: "dropdown" }>
+        | undefined,
     []
   );
 
@@ -59,6 +91,19 @@ export default function Header() {
     if (!resources) return false;
     return resources.items.some((i) => isActivePath(pathname, i.href));
   }, [pathname, resources]);
+
+  // ✅ Dashboard routing by role (server decides)
+  async function goDashboard() {
+    try {
+      const res = await fetch("/api/auth/route-by-role", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Routing failed");
+      router.push(json.redirectTo || "/");
+    } catch {
+      // fallback
+      router.push("/");
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50">
@@ -91,12 +136,23 @@ export default function Header() {
               </a>
             ))}
 
-            <Link
-              href="/manager/login"
-              className="ml-2 rounded-md border border-white/25 bg-white/5 px-4 py-2 text-xs font-extrabold uppercase text-white transition hover:bg-white/10"
-            >
-              Login
-            </Link>
+            {/* ✅ UPDATED LOGIN / DASHBOARD BUTTON */}
+            {!authed ? (
+              <Link
+                href="/login"
+                className="ml-2 rounded-md border border-white/25 bg-white/5 px-4 py-2 text-xs font-extrabold uppercase text-white transition hover:bg-white/10"
+              >
+                Login
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={goDashboard}
+                className="ml-2 rounded-md border border-white/25 bg-white/5 px-4 py-2 text-xs font-extrabold uppercase text-white transition hover:bg-white/10"
+              >
+                Dashboard
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -106,11 +162,6 @@ export default function Header() {
         <div className="mx-auto max-w-[1300px] px-6">
           <div className="relative flex h-[84px] items-center justify-between">
             {/* LOGO OVERHANG */}
-            {/* IMPORTANT FIX:
-               - pointer-events-none on the ABSOLUTE wrapper so it doesn't block taps on the right (hamburger)
-               - pointer-events-auto on the Link so the logo is still clickable
-               - z-0 so it stays behind nav controls
-            */}
             <div className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 z-0">
               <Link href="/" className="pointer-events-auto inline-block" aria-label="Home">
                 <Image
@@ -226,7 +277,7 @@ export default function Header() {
                 </Link>
               </div>
 
-              {/* Mobile hamburger (always tap-able now) */}
+              {/* Mobile hamburger */}
               <button
                 type="button"
                 onClick={() => setMobileOpen((v) => !v)}
@@ -236,12 +287,7 @@ export default function Header() {
               >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   {mobileOpen ? (
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
+                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                   ) : (
                     <path
                       d="M4 7h16M4 12h16M4 17h16"
@@ -264,7 +310,6 @@ export default function Header() {
           >
             <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-2">
-                {/* Mobile Links + Resources accordion */}
                 {NAV.map((item) => {
                   if (item.type === "link") {
                     const active = isActivePath(pathname, item.href);
@@ -286,7 +331,6 @@ export default function Header() {
                     );
                   }
 
-                  // Resources accordion
                   return (
                     <div key={item.label} className="rounded-xl border border-slate-200 overflow-hidden">
                       <button
@@ -312,7 +356,9 @@ export default function Header() {
                               onClick={() => setMobileOpen(false)}
                               className={[
                                 "block px-4 py-3 text-sm font-extrabold border-t border-slate-200",
-                                ddActive ? "bg-amber-50 text-[#0B2B55]" : "bg-slate-50 text-[#24324A] hover:bg-slate-100",
+                                ddActive
+                                  ? "bg-amber-50 text-[#0B2B55]"
+                                  : "bg-slate-50 text-[#24324A] hover:bg-slate-100",
                               ].join(" ")}
                             >
                               {dd.label}

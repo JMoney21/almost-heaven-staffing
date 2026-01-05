@@ -4,8 +4,9 @@ export const revalidate = 0;
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import PhotoUploader from "./PhotoUploader";
 import CopyButton from "./CopyButton";
+import ProfilePhotoSection from "./ProfilePhotoSection";
+import LogoutButton from "./LogoutButton";
 
 function StatCard({
   label,
@@ -18,13 +19,9 @@ function StatCard({
 }) {
   return (
     <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-      <div className="text-xs font-extrabold uppercase tracking-wide text-white/70">
-        {label}
-      </div>
+      <div className="text-xs font-extrabold uppercase tracking-wide text-white/70">{label}</div>
       <div className="mt-2 text-2xl font-black text-white">{value}</div>
-      {sub ? (
-        <div className="mt-1 text-xs font-semibold text-white/70">{sub}</div>
-      ) : null}
+      {sub ? <div className="mt-1 text-xs font-semibold text-white/70">{sub}</div> : null}
     </div>
   );
 }
@@ -71,9 +68,7 @@ function SideLink({
       href={href}
       className={[
         "block rounded-xl px-4 py-3 text-sm font-extrabold transition",
-        active
-          ? "bg-white text-[#0B2B55]"
-          : "text-white/85 hover:bg-white/10 hover:text-white",
+        active ? "bg-white text-[#0B2B55]" : "text-white/85 hover:bg-white/10 hover:text-white",
       ].join(" ")}
     >
       {label}
@@ -89,14 +84,28 @@ export default async function EmployeeDashboard() {
   const user = authData?.user;
   if (authError || !user) redirect("/employee/login");
 
-  // ✅ Only select columns that exist (based on your manager portal)
+  // Profile
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("full_name, role, facility_id, avatar_url")
+    .select("user_id, full_name, role, facility_id, avatar_url")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (profileError || !profile) {
+  if (profileError) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Profile query failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">
+          user_id: {user.id}
+          {"\n\n"}
+          {profileError.message}
+        </pre>
+      </div>
+    );
+  }
+
+  if (!profile) {
     return (
       <div className="min-h-screen bg-[#061A33] p-10 text-white">
         <h1 className="text-2xl font-black">Employee Portal</h1>
@@ -104,59 +113,161 @@ export default async function EmployeeDashboard() {
           You are logged in, but we couldn’t find your profile record.
         </p>
         <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">
-          {profileError?.message ?? "No profile returned"}
+          user_id: {user.id}
+          {"\n"}
+          email: {user.email ?? "—"}
         </pre>
       </div>
     );
   }
 
-  const fullName = profile.full_name ?? "Employee";
-  const avatarUrl = (profile as any).avatar_url ?? null;
-
-  // Points
-  const { data: ptsBal } = await supabase
-    .from("points_balances")
-    .select("total_points")
-    .eq("employee_user_id", user.id)
+  // ✅ Fetch employee row (id + name)
+  const { data: employeeRow, error: employeeErr } = await supabase
+    .from("employees")
+    .select("id, full_name")
+    .eq("user_id", user.id)
     .maybeSingle();
 
-  const points = ptsBal?.total_points ?? 0;
+  if (employeeErr) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Employee lookup failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">{employeeErr.message}</pre>
+      </div>
+    );
+  }
+
+  if (!employeeRow?.id) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">No employee record linked to this login yet.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">
+          user_id: {user.id}
+          {"\n"}
+          Fix: employees.user_id must equal auth user id for this employee.
+        </pre>
+      </div>
+    );
+  }
+
+  const employeeId = employeeRow.id as string;
+
+  // ✅ Prefer employee full name
+  const fullName = employeeRow.full_name || profile.full_name || user.email?.split("@")[0] || "Employee";
+  const avatarUrl = (profile as any).avatar_url ?? null;
+
+  // ✅ Points: compute from points_transactions (manager uses employee_id)
+  const { data: ptsTxAll, error: ptsTxAllErr } = await supabase
+    .from("points_transactions")
+    .select("points")
+    .eq("employee_id", employeeId);
+
+  if (ptsTxAllErr) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Points query failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">{ptsTxAllErr.message}</pre>
+      </div>
+    );
+  }
+
+  const points = (ptsTxAll ?? []).reduce((sum: number, t: any) => sum + (Number(t.points) || 0), 0);
 
   // Badge progress
   const nextThreshold = 2500;
   const progress = Math.min(100, Math.round((points / nextThreshold) * 100));
 
-  // Assignments
-  const { data: assignments } = await supabase
-    .from("assignments")
-    .select("id, title, location, specialty, start_date, end_date, status")
-    .eq("employee_user_id", user.id)
-    .order("start_date", { ascending: false })
+  /**
+   * ✅ ASSIGNMENTS (use the SAME tables as manager)
+   * employee_assignments -> jobs
+   */
+  const JOB_SELECT = `
+    id,
+    title,
+    location,
+    hospital_name,
+    hospital_address,
+    created_at
+  `;
+
+  const { data: contractsRaw, error: contractsErr } = await supabase
+    .from("employee_assignments")
+    .select("id, status, pay_rate, start_date, created_at, job_id")
+    .eq("employee_id", employeeId)
+    .order("created_at", { ascending: false })
     .limit(4);
 
-  const activeAssignments =
-    (assignments ?? []).filter((a: any) => a.status === "current").length;
+  if (contractsErr) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Assignments query failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">{contractsErr.message}</pre>
+      </div>
+    );
+  }
+
+  const jobIds = Array.from(new Set((contractsRaw ?? []).map((c: any) => c.job_id).filter(Boolean)));
+
+  const { data: jobsForContracts, error: jobsForContractsErr } = jobIds.length
+    ? await supabase.from("jobs").select(JOB_SELECT).in("id", jobIds)
+    : { data: [] as any[], error: null as any };
+
+  if (jobsForContractsErr) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Jobs lookup failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">{jobsForContractsErr.message}</pre>
+      </div>
+    );
+  }
+
+  const jobsMap = new Map((jobsForContracts ?? []).map((j: any) => [j.id, j]));
+  const contracts = (contractsRaw ?? []).map((c: any) => ({ ...c, job: c.job_id ? jobsMap.get(c.job_id) : null }));
+
+  const activeAssignments = contracts.filter((c: any) => String(c.status) === "active").length;
 
   // Referrals
-  const { data: referrals } = await supabase
+  const { data: referrals, error: refErr } = await supabase
     .from("referrals")
     .select("id, referred_name, status, points_awarded, created_at")
     .eq("referrer_user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(4);
 
-  const referralPoints = (referrals ?? []).reduce(
-    (sum: number, r: any) => sum + (r.points_awarded ?? 0),
-    0
-  );
+  if (refErr) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Referrals query failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">{refErr.message}</pre>
+      </div>
+    );
+  }
 
-  // Redeemed (optional)
-  const { data: ptsTx } = await supabase
+  const referralPoints = (referrals ?? []).reduce((sum: number, r: any) => sum + (r.points_awarded ?? 0), 0);
+
+  // Redeemed
+  const { data: ptsTx, error: ptsTxErr } = await supabase
     .from("points_transactions")
-    .select("id, points")
-    .eq("employee_user_id", user.id)
+    .select("id, points, created_at")
+    .eq("employee_id", employeeId)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  if (ptsTxErr) {
+    return (
+      <div className="min-h-screen bg-[#061A33] p-10 text-white">
+        <h1 className="text-2xl font-black">Employee Portal</h1>
+        <p className="mt-3 text-white/80 font-semibold">Points transactions query failed.</p>
+        <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-black/30 p-5 text-sm">{ptsTxErr.message}</pre>
+      </div>
+    );
+  }
 
   const redeemed = Math.abs(
     (ptsTx ?? [])
@@ -173,20 +284,13 @@ export default async function EmployeeDashboard() {
         <div className="flex items-end justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black">Welcome, {fullName} 👋</h1>
-            <p className="mt-1 text-sm font-semibold text-white/75">
-              Employee Portal
-            </p>
+            <p className="mt-1 text-sm font-semibold text-white/75">Employee Portal</p>
           </div>
 
-          <Link
-            href="/employee/logout"
-            className="rounded-xl bg-[#F6B400] px-5 py-3 text-sm font-black text-[#0B2545] hover:brightness-95"
-          >
-            Log Out
-          </Link>
+          <LogoutButton />
         </div>
 
-        {/* Layout: sidebar + content */}
+        {/* Layout */}
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
           {/* Sidebar */}
           <aside className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 h-fit">
@@ -196,9 +300,7 @@ export default async function EmployeeDashboard() {
               </div>
               <div>
                 <div className="text-sm font-black">{fullName}</div>
-                <div className="text-xs font-semibold text-white/70">
-                  Employee Portal
-                </div>
+                <div className="text-xs font-semibold text-white/70">Employee Portal</div>
               </div>
             </div>
 
@@ -221,38 +323,21 @@ export default async function EmployeeDashboard() {
                 value={`${progress}%`}
                 sub={`Next badge at ${nextThreshold.toLocaleString()}`}
               />
-              <StatCard label="Active Assignments" value={activeAssignments} sub="Current" />
+              <StatCard label="Active Assignments" value={activeAssignments} sub="Active" />
               <StatCard label="Referral Earnings" value={`+${referralPoints}`} sub="points" />
             </div>
 
             {/* Profile + Photo */}
             <WhiteCard title="Your Profile">
               <div className="grid gap-6 md:grid-cols-[180px_1fr] items-start">
-                <div>
-                  <div className="relative h-44 w-44 overflow-hidden rounded-3xl bg-slate-100 ring-1 ring-slate-200">
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full grid place-items-center text-sm font-black text-slate-500">
-                        No Photo
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-3">
-                    <PhotoUploader userId={user.id} currentAvatarUrl={avatarUrl} />
-                  </div>
-                </div>
+                <ProfilePhotoSection userId={user.id} initialAvatarUrl={avatarUrl} />
 
                 <div className="space-y-2">
                   <div className="text-lg font-black text-[#0B2B55]">{fullName}</div>
-                  <div className="text-sm font-semibold text-slate-600 break-all">
-                    {user.email ?? "—"}
-                  </div>
+                  <div className="text-sm font-semibold text-slate-600 break-all">{user.email ?? "—"}</div>
 
                   <div className="mt-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                    <div className="text-xs font-extrabold uppercase text-slate-500">
-                      Current Badge
-                    </div>
+                    <div className="text-xs font-extrabold uppercase text-slate-500">Current Badge</div>
                     <div className="mt-1 text-lg font-black text-slate-900">Gold Adventurer</div>
                     <div className="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                       <div className="h-full bg-[#0B2B55]" style={{ width: `${progress}%` }} />
@@ -265,7 +350,7 @@ export default async function EmployeeDashboard() {
               </div>
             </WhiteCard>
 
-            {/* Assignments */}
+            {/* ✅ Assignments (from employee_assignments) */}
             <WhiteCard
               title="Your Assignments"
               right={
@@ -275,18 +360,38 @@ export default async function EmployeeDashboard() {
               }
             >
               <div className="space-y-3">
-                {(assignments ?? []).length ? (
-                  (assignments ?? []).map((a: any) => (
-                    <div key={a.id} className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-                      <div>
-                        <div className="font-extrabold">{a.location ?? "—"}</div>
-                        <div className="text-sm font-semibold text-slate-600">
-                          {(a.specialty ?? "—")} • {(a.title ?? "—")}
+                {contracts.length ? (
+                  contracts.map((c: any) => {
+                    const job = c.job;
+                    const title = job?.title ?? "Assignment";
+                    const location = job?.location ?? "";
+                    const hospitalName = job?.hospital_name ?? "";
+                    const hospitalAddress = job?.hospital_address ?? "";
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 p-4"
+                      >
+                        <div>
+                          <div className="font-extrabold">{title}</div>
+                          <div className="text-sm font-semibold text-slate-600">
+                            {location}
+                            {hospitalName ? ` • ${hospitalName}` : ""}
+                          </div>
+                          {hospitalAddress ? (
+                            <div className="text-xs font-semibold text-slate-500">{hospitalAddress}</div>
+                          ) : null}
+                          <div className="mt-1 text-xs font-semibold text-slate-600">
+                            Pay: <span className="font-black">${c.pay_rate}/week</span> • Start:{" "}
+                            <span className="font-black">{c.start_date}</span>
+                          </div>
                         </div>
+
+                        <Pill>{String(c.status ?? "—").toUpperCase()}</Pill>
                       </div>
-                      <Pill>{a.status ?? "—"}</Pill>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-sm font-semibold text-slate-600">No assignments yet.</div>
                 )}
@@ -328,4 +433,3 @@ export default async function EmployeeDashboard() {
     </div>
   );
 }
-
