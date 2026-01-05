@@ -1,4 +1,3 @@
-// src/app/page.tsx
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -10,9 +9,7 @@ export default function Page() {
       <Header />
 
       {/* HERO */}
-      {/* Add padding-top so the sticky header + overhanging logo don’t cover the hero */}
       <section id="home" className="relative h-[88vh] overflow-hidden pt-[40px]">
-        {/* HERO BACKGROUND IMAGE */}
         <Image
           src="/hero.jpg"
           alt="Mountain background"
@@ -20,27 +17,24 @@ export default function Page() {
           priority
           className="object-cover object-center"
         />
-
-        {/* OVERLAY for readability */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/10 via-slate-900/25 to-slate-900/55" />
 
         <div className="relative mx-auto max-w-6xl px-4 py-10 md:py-14">
           <div className="grid items-center gap-10 md:grid-cols-2">
-            {/* LEFT TEXT */}
+            {/* LEFT */}
             <div className="text-white">
-              <h1 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
-                Your Partner in <br />
-                Adventure & Care.
+              <h1 className="text-4xl font-black md:text-5xl leading-tight">
+                Your Partner in <br /> Adventure & Care.
               </h1>
 
-              <p className="mt-4 max-w-xl text-white/90 text-lg font-medium">
+              <p className="mt-4 max-w-xl text-lg font-medium text-white/90">
                 Top travel assignments + fast placements + real support.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/apply"
-                  className="rounded-full bg-amber-400 px-6 py-3 text-sm font-extrabold text-slate-900 shadow hover:bg-amber-300"
+                  className="rounded-full bg-amber-400 px-6 py-3 text-sm font-extrabold text-slate-900 hover:bg-amber-300"
                 >
                   Apply as a Nurse
                 </Link>
@@ -56,7 +50,7 @@ export default function Page() {
               <ul className="mt-6 space-y-2 text-sm font-semibold text-white/90">
                 {["Fast credentialing", "Weekly pay", "24/7 recruiter support"].map((x) => (
                   <li key={x} className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-slate-900 font-black">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-slate-900 font-black">
                       ✓
                     </span>
                     {x}
@@ -65,7 +59,7 @@ export default function Page() {
               </ul>
             </div>
 
-            {/* RIGHT IMAGE */}
+            {/* RIGHT */}
             <div className="relative">
               <div className="relative mx-auto aspect-[4/5] w-full max-w-sm overflow-hidden rounded-3xl bg-white/10 ring-1 ring-white/20 shadow-2xl">
                 <Image
@@ -73,19 +67,18 @@ export default function Page() {
                   alt="Nurse"
                   fill
                   className="object-cover object-top"
-                  priority
                 />
               </div>
 
               <div className="absolute -bottom-6 left-1/2 w-[92%] -translate-x-1/2 rounded-2xl bg-white/90 p-4 shadow-xl ring-1 ring-slate-200">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold text-slate-600">Contracts up to</div>
-                    <div className="text-2xl font-black text-slate-900">$90/hr</div>
+                    <div className="text-2xl font-black">$90/hr</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-bold text-slate-600">Start dates weekly:</div>
-                    <div className="text-sm font-extrabold text-slate-900">
+                    <div className="text-xs font-bold text-slate-600">Start dates weekly</div>
+                    <div className="text-sm font-extrabold">
                       ICU • ER • Med-Surg • Tele
                     </div>
                   </div>
@@ -97,22 +90,10 @@ export default function Page() {
           {/* GET STARTED BAR */}
           <div className="mt-14 rounded-2xl bg-white/90 p-3 shadow-2xl ring-1 ring-slate-200">
             <form className="grid gap-3 md:grid-cols-4">
-              <input
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-300"
-                placeholder="Your Name"
-              />
-              <input
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-300"
-                placeholder="Your Email"
-              />
-              <input
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-300"
-                placeholder="Phone Number"
-              />
-              <button
-                type="button"
-                className="h-12 rounded-xl bg-amber-400 text-sm font-extrabold text-slate-900 shadow hover:bg-amber-300"
-              >
+              <input className="h-12 rounded-xl border px-4 text-sm font-semibold" placeholder="Your Name" />
+              <input className="h-12 rounded-xl border px-4 text-sm font-semibold" placeholder="Your Email" />
+              <input className="h-12 rounded-xl border px-4 text-sm font-semibold" placeholder="Phone Number" />
+              <button className="h-12 rounded-xl bg-amber-400 text-sm font-extrabold hover:bg-amber-300">
                 Get Started →
               </button>
             </form>
@@ -124,7 +105,7 @@ export default function Page() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-14">
           <div className="text-center">
-            <h2 className="text-3xl font-black tracking-tight">How It Works</h2>
+            <h2 className="text-3xl font-black">How It Works</h2>
             <p className="mt-2 text-slate-600 font-semibold">
               Simple steps to your next{" "}
               <span className="underline decoration-amber-400 decoration-4 underline-offset-4">
@@ -136,38 +117,54 @@ export default function Page() {
 
           <div className="mt-8 grid gap-4 md:grid-cols-5">
             {[
-              { n: "1", t: "Apply", img: "/how-it-works/apply.png" },
-              { n: "2", t: "Get Matched", img: "/how-it-works/matched.png" },
-              { n: "3", t: "Recruiter", img: "/how-it-works/recruiter.png" },
-              { n: "4", t: "Start Contract", img: "/how-it-works/contract.png" },
-              { n: "5", t: "We Handle It", img: "/how-it-works/handled.png" },
+              {
+                n: "1",
+                t: "Apply",
+                img: "/how-it-works/apply.png",
+                d: "Tell us your specialty, license, and where you want to go.",
+              },
+              {
+                n: "2",
+                t: "Get Matched",
+                img: "/how-it-works/matched.png",
+                d: "We send jobs that match your pay goals and schedule.",
+              },
+              {
+                n: "3",
+                t: "Recruiter",
+                img: "/how-it-works/recruiter.png",
+                d: "Your recruiter handles details and advocates for you.",
+              },
+              {
+                n: "4",
+                t: "Start Contract",
+                img: "/how-it-works/contract.png",
+                d: "Accept your offer and start with confidence.",
+              },
+              {
+                n: "5",
+                t: "We Handle It",
+                img: "/how-it-works/handled.png",
+                d: "Credentialing, onboarding, and support—handled.",
+              },
             ].map((s) => (
               <div
                 key={s.n}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="rounded-2xl border bg-slate-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <div className="flex justify-center">
-                  <div className="relative h-[110px] w-full">
-                    <Image
-                      src={s.img}
-                      alt={s.t}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 20vw"
-                      priority={s.n === "1"}
-                    />
-                  </div>
+                <div className="relative h-[110px]">
+                  <Image src={s.img} alt={s.t} fill className="object-contain" />
                 </div>
 
                 <div className="mt-4 flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white font-black ring-1 ring-slate-200">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 font-black">
                     {s.n}
                   </div>
                   <div className="font-extrabold">{s.t}</div>
                 </div>
 
                 <div className="mt-2 text-sm font-semibold text-slate-600">
-                  Short supporting line goes here.
+                  {s.d}
                 </div>
               </div>
             ))}
@@ -223,17 +220,15 @@ export default function Page() {
 
                 <div className="flex h-[210px] flex-col justify-between p-6">
                   <div>
-                    <div className="text-xs font-extrabold tracking-wide text-[#F6B400]">
-                      {post.date}
-                    </div>
-                    <h3 className="mt-3 text-lg font-black leading-snug text-[#0B2B55]">
+                    <div className="text-xs font-extrabold text-[#F6B400]">{post.date}</div>
+                    <h3 className="mt-3 text-lg font-black text-[#0B2B55]">
                       {post.title}
                     </h3>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-slate-500">Read article</span>
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F6B400] text-[#0B2B55] font-black transition group-hover:scale-110">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F6B400] font-black">
                       →
                     </span>
                   </div>
@@ -244,58 +239,35 @@ export default function Page() {
         </div>
       </section>
 
-      {/* FEATURED CALLOUT SECTION – MOUNTAIN BACKGROUND */}
+      {/* FEATURED CALLOUT */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <Image
-            src="/hero-bg.jpg"
-            alt="Mountain background"
-            fill
-            priority
-            className="object-cover object-center"
-          />
+          <Image src="/hero-bg.jpg" alt="Mountain background" fill className="object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/90 via-[#0B2545]/75 to-[#0B2545]/60" />
         </div>
 
-        <div className="relative mx-auto max-w-6xl px-4 py-20">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            <div className="relative">
-              <div className="relative overflow-hidden rounded-[28px] shadow-2xl rotate-[-3deg]">
-                <Image
-                  src="/blog/blog-1.png"
-                  alt="Healthcare professionals collaborating"
-                  width={700}
-                  height={500}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            </div>
+        <div className="relative mx-auto max-w-6xl px-4 py-20 grid lg:grid-cols-2 gap-12 items-center">
+          <div className="rotate-[-3deg] rounded-[28px] overflow-hidden shadow-2xl">
+            <Image src="/blog/blog-1.png" alt="Healthcare professionals" width={700} height={500} />
+          </div>
 
-            <div className="text-white">
-              <h2 className="text-3xl font-black leading-tight md:text-4xl">
-                Need talented healthcare staff?{" "}
-                <span className="text-amber-400">Look no further.</span>
-              </h2>
+          <div className="text-white">
+            <h2 className="text-3xl font-black md:text-4xl">
+              Need talented healthcare staff?{" "}
+              <span className="text-amber-400">Look no further.</span>
+            </h2>
 
-              <p className="mt-5 max-w-xl text-white/90 text-base font-medium leading-relaxed">
-                Almost Heaven Staffing is selective in the best way. We hold our nurses
-                and clinicians to high standards to ensure strong, reliable matches
-                between facilities and caregivers.
-              </p>
+            <p className="mt-5 max-w-xl text-white/90">
+              We connect healthcare organizations with professionals who genuinely want to make an impact.
+            </p>
 
-              <p className="mt-4 max-w-xl text-white/85 text-base font-medium leading-relaxed">
-                From long-term contracts to hard-to-fill needs, we connect healthcare
-                organizations with professionals who genuinely want to make an impact.
-              </p>
-
-              <div className="mt-8">
-                <Link
-                  href="/request-staff"
-                  className="inline-flex items-center rounded-full bg-amber-400 px-7 py-3 text-sm font-extrabold text-[#0B2545] shadow hover:bg-amber-300"
-                >
-                  Learn more →
-                </Link>
-              </div>
+            <div className="mt-8">
+              <Link
+                href="/request-staff"
+                className="rounded-full bg-amber-400 px-7 py-3 text-sm font-extrabold text-[#0B2545]"
+              >
+                Learn more →
+              </Link>
             </div>
           </div>
         </div>
