@@ -1,15 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 type JobRow = {
   id: string;
   job_number?: number | null;
 
-  // common db-style columns (snake_case)
   pay_min?: number | null;
   pay_max?: number | null;
 
@@ -27,7 +27,6 @@ type JobRow = {
 
   status?: string | null;
 
-  // optional display column
   pay_display?: string | null;
 };
 
@@ -49,165 +48,6 @@ type Job = {
 
 function money(n: number) {
   return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
-/** YOUR SITE HEADER */
-function Header() {
-  return (
-    <header className="sticky top-0 z-50">
-{/* TOP BAR */}
-<div className="bg-[#0B2B55] text-white">
-  <div className="mx-auto flex max-w-[1300px] items-center justify-between px-6 py-2 text-sm font-semibold">
-    {/* LEFT INFO */}
-    <div className="flex items-center gap-8">
-      <span>(304) 444-4371</span>
-      <span className="uppercase">info@almostheavenstaffing.com</span>
-      <span className="hidden md:inline uppercase">
-        Mon - Fri: 9:00 - 18:30
-      </span>
-    </div>
-
-    {/* RIGHT ACTIONS */}
-    <div className="flex items-center gap-3">
-      {[
-        {
-          label: "Facebook",
-          href: "https://facebook.com/almostheavenstaffing",
-          icon: (
-            <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-          ),
-        },
-        {
-          label: "Instagram",
-          href: "https://instagram.com/almostheavenstaffing",
-          icon: (
-            <>
-              <rect x="2" y="2" width="20" height="20" rx="5" />
-              <circle cx="12" cy="12" r="3.5" />
-              <circle cx="17.5" cy="6.5" r="1" />
-            </>
-          ),
-        },
-        {
-          label: "Twitter",
-          href: "https://twitter.com",
-          icon: (
-            <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53A4.48 4.48 0 0 0 22.43 2a9 9 0 0 1-2.88 1.1A4.5 4.5 0 0 0 12 7.5v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
-          ),
-        },
-        {
-          label: "LinkedIn",
-          href: "https://linkedin.com/company/almost-heaven-staffing",
-          icon: (
-            <>
-              <rect x="2" y="2" width="20" height="20" rx="2" />
-              <line x1="6" y1="9" x2="6" y2="17" />
-              <line x1="6" y1="7" x2="6" y2="7" />
-              <line x1="10" y1="9" x2="10" y2="17" />
-              <path d="M10 13a4 4 0 0 1 8 0v4" />
-            </>
-          ),
-        },
-      ].map((s) => (
-        <a
-          key={s.label}
-          href={s.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={s.label}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F6B400] text-[#0B2545] transition hover:brightness-95"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-          >
-            {s.icon}
-          </svg>
-        </a>
-      ))}
-
-      {/* LOGIN */}
-      <Link
-        href="/manager/login"
-        className="ml-2 rounded-md border border-white/25 bg-white/5 px-4 py-2 text-xs font-extrabold uppercase text-white transition hover:bg-white/10"
-      >
-        Login
-      </Link>
-    </div>
-  </div>
-</div>
-
-
-      {/* NAVBAR */}
-      <div className="relative bg-white shadow-md">
-        <div className="mx-auto max-w-[1300px] px-6">
-          <div className="relative flex h-[84px] items-center justify-between">
-            {/* LOGO OVERHANG */}
-            <div className="absolute left-0 top-1/2 -translate-y-1/2">
-              <Image
-                src="/logo.png"
-                alt="Almost Heaven Staffing"
-                width={300}
-                height={180}
-                priority
-                className="w-[220px] translate-y-8 object-contain md:w-[260px]"
-              />
-            </div>
-
-            {/* NAV */}
-            <nav className="ml-[260px] hidden items-center gap-10 lg:flex">
-              {(["Home", "Meet us", "Traveler", "Pages", "News", "Explore Jobs"] as const).map(
-                (label) => {
-                  const isActive = label === "Explore Jobs";
-                  return (
-                    <a
-                      key={label}
-                      href={label === "Home" ? "/" : "#"}
-                      className={[
-                        "relative pb-2 text-[17px] font-extrabold",
-                        isActive ? "text-[#F6B400]" : "text-[#24324A]",
-                        "hover:text-[#F6B400]",
-                      ].join(" ")}
-                    >
-                      {label}
-                      <span
-                        className={[
-                          "absolute left-0 -bottom-[6px] h-[3px] w-full bg-[#F6B400]",
-                          isActive ? "opacity-100" : "opacity-0",
-                        ].join(" ")}
-                      />
-                    </a>
-                  );
-                }
-              )}
-            </nav>
-
-            {/* BUTTONS */}
-            <div className="flex items-center gap-4">
-              <a
-                href="#apply"
-                className="rounded-md bg-[#F6B400] px-7 py-3 text-sm font-extrabold text-[#0B2545] hover:brightness-95"
-              >
-                Apply Now
-              </a>
-              <a
-                href="#request"
-                className="rounded-md border-[3px] border-[#0B2545] bg-white px-7 py-3 text-sm font-extrabold text-[#24324A] hover:bg-slate-50"
-              >
-                Request Staff
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
 }
 
 function FilterRow({ title }: { title: string }) {
@@ -326,8 +166,14 @@ export default function Page() {
         <div className="flex items-start justify-between gap-6">
           <div>
             <h1 className="text-[34px] font-semibold text-[#111827]">Jobs</h1>
-            <div className="mt-3 text-sm text-[#6B7280]">{loading ? "Loading…" : `${results.length} results`}</div>
-            {dbError ? <div className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">Supabase error: {dbError}</div> : null}
+            <div className="mt-3 text-sm text-[#6B7280]">
+              {loading ? "Loading…" : `${results.length} results`}
+            </div>
+            {dbError ? (
+              <div className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">
+                Supabase error: {dbError}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-12 flex items-center gap-4">
@@ -370,7 +216,10 @@ export default function Page() {
             </button>
           ) : null}
 
-          <button onClick={() => setSelectedSpecialty("")} className="text-sm font-medium text-[#6B7280] hover:text-[#111827]">
+          <button
+            onClick={() => setSelectedSpecialty("")}
+            className="text-sm font-medium text-[#6B7280] hover:text-[#111827]"
+          >
             Clear all
           </button>
         </div>
@@ -395,16 +244,23 @@ export default function Page() {
                   const href = `/jobs/${job.jobNumber}`;
 
                   return (
-                    <article key={job.id} className="rounded-md bg-white shadow-[0_1px_10px_rgba(0,0,0,0.08)]">
+                    <article
+                      key={job.id}
+                      className="rounded-md bg-white shadow-[0_1px_10px_rgba(0,0,0,0.08)]"
+                    >
                       <div className="p-5">
-                        <div className="text-[11px] text-[#6B7280]">{job.jobNumber ? `Job #${job.jobNumber}` : `ID: ${job.id}`}</div>
+                        <div className="text-[11px] text-[#6B7280]">
+                          {job.jobNumber ? `Job #${job.jobNumber}` : `ID: ${job.id}`}
+                        </div>
 
                         <div className="mt-1 text-[18px] font-semibold text-[#0E7C66]">
                           ${money(job.payMin)} - ${money(job.payMax)}
                           <span className="text-[12px] font-medium text-[#6B7280]">/wk</span>
                         </div>
 
-                        <div className="mt-2 text-[13px] font-semibold text-[#111827]">{job.title}</div>
+                        <div className="mt-2 text-[13px] font-semibold text-[#111827]">
+                          {job.title}
+                        </div>
                         <div className="mt-1 text-[12px] text-[#6B7280]">
                           {job.city}, {job.state}
                         </div>
@@ -427,7 +283,6 @@ export default function Page() {
                         <div className="mt-4 flex items-center justify-between">
                           <div className="text-[11px] text-[#9CA3AF]">Posted {job.posted}</div>
 
-                          {/* ✅ ONLY CHANGE YOU NEEDED: View job link */}
                           {canView ? (
                             <Link
                               href={href}
@@ -453,7 +308,8 @@ export default function Page() {
 
                 {!results.length ? (
                   <div className="col-span-full rounded bg-white p-6 text-sm text-[#6B7280]">
-                    No jobs found. If you just added jobs in Supabase, make sure they’re <b>published</b> and your RLS policy allows public reads of published jobs.
+                    No jobs found. If you just added jobs in Supabase, make sure they’re{" "}
+                    <b>published</b> and your RLS policy allows public reads of published jobs.
                   </div>
                 ) : null}
               </div>
@@ -462,7 +318,11 @@ export default function Page() {
         </div>
       </div>
 
-      <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-[#2B0B26] text-white shadow-2xl">💬</button>
+      <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-[#2B0B26] text-white shadow-2xl">
+        💬
+      </button>
+
+      <Footer />
     </main>
   );
 }
