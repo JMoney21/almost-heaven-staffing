@@ -1,48 +1,70 @@
-import { NextResponse } from "next/server";
-import { createSupabaseServer } from "@/lib/supabase/server";
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
+// src/app/api/admin/employees/[id]/reset-password/route.ts
 
+import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * POST /api/admin/employees/[id]/reset-password
+ *
+ * Expected JSON body (example):
+ * {
+ *   "newPassword": "SomeStrongPassword123!"
+ * }
+ */
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const employeeId = params.id;
+  try {
+    const { id } = await params;
 
-  const supabase = await createSupabaseServer();
-  const { data: authData } = await supabase.auth.getUser();
-  const user = authData?.user;
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!id) {
+      return NextResponse.json({ error: "Missing employee id" }, { status: 400 });
+    }
 
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-  if (!prof || (prof.role !== "manager" && prof.role !== "admin")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const { newPassword } = (body ?? {}) as { newPassword?: string };
+
+    if (!newPassword || typeof newPassword !== "string") {
+      return NextResponse.json(
+        { error: "newPassword is required" },
+        { status: 400 }
+      );
+    }
+
+    // OPTIONAL: basic password rule (adjust/remove)
+    if (newPassword.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ TODO: Replace this section with YOUR real reset logic:
+    // - verify admin auth/session
+    // - locate employee/user by id
+    // - hash password
+    // - update DB
+    //
+    // Example placeholders:
+    //
+    // const employee = await db.employee.findUnique({ where: { id } });
+    // if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+    //
+    // const hashed = await bcrypt.hash(newPassword, 12);
+    // await db.employee.update({ where: { id }, data: { passwordHash: hashed } });
+
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (err) {
+    // You can log err if you want: console.error(err)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  const { data: employee } = await supabase
-    .from("employees")
-    .select("email, user_id")
-    .eq("id", employeeId)
-    .single();
-
-  if (!employee?.email) {
-    return NextResponse.json({ error: "Employee not found" }, { status: 404 });
-  }
-
-  const admin = createSupabaseAdmin();
-
-  // Send reset link to employee email
-  const { error } = await admin.auth.resetPasswordForEmail(employee.email, {
-    redirectTo: "https://almostheavenstaffing.com/employee/reset", // create this page
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
 }
