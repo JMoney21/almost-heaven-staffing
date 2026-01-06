@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import SharedLoginForm from "./SharedLoginForm.tsx";
+import SharedLoginForm from "./SharedLoginForm";
 
 type PageProps = {
   searchParams?: Promise<{ error?: string; next?: string }>;
