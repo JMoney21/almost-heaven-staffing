@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 type NavItem =
@@ -47,6 +47,9 @@ export default function Header() {
   // ✅ Auth state (for top-bar button)
   const supabase = useMemo(() => createSupabaseBrowser(), []);
   const [authed, setAuthed] = useState<boolean>(false);
+
+  // ✅ close timer to prevent dropdown flicker
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close menus on route change
   useEffect(() => {
@@ -100,9 +103,20 @@ export default function Header() {
       if (!res.ok) throw new Error(json?.error || "Routing failed");
       router.push(json.redirectTo || "/");
     } catch {
-      // fallback
       router.push("/");
     }
+  }
+
+  function openResources() {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setResourcesOpenDesktop(true);
+  }
+
+  function closeResourcesWithDelay() {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      setResourcesOpenDesktop(false);
+    }, 140);
   }
 
   return (
@@ -112,17 +126,30 @@ export default function Header() {
         <div className="mx-auto flex max-w-[1300px] items-center justify-between px-6 py-2 text-sm font-semibold">
           <div className="flex items-center gap-8">
             <span>(304) 444-4371</span>
-            <span className="uppercase hidden sm:inline">info@almostheavenstaffing.com</span>
-            <span className="hidden md:inline uppercase">Mon - Fri: 9:00 - 18:30</span>
+            <span className="uppercase hidden sm:inline">
+              info@almostheavenstaffing.com
+            </span>
+            <span className="hidden md:inline uppercase">
+              Mon - Fri: 9:00 - 18:30
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Socials (hide on very small screens) */}
+            {/* Socials */}
             {[
-              { label: "Facebook", href: "https://facebook.com/almostheavenstaffing" },
-              { label: "Instagram", href: "https://instagram.com/almostheavenstaffing" },
+              {
+                label: "Facebook",
+                href: "https://facebook.com/almostheavenstaffing",
+              },
+              {
+                label: "Instagram",
+                href: "https://instagram.com/almostheavenstaffing",
+              },
               { label: "Twitter", href: "https://twitter.com" },
-              { label: "LinkedIn", href: "https://linkedin.com/company/almost-heaven-staffing" },
+              {
+                label: "LinkedIn",
+                href: "https://linkedin.com/company/almost-heaven-staffing",
+              },
             ].map((s) => (
               <a
                 key={s.label}
@@ -132,11 +159,17 @@ export default function Header() {
                 aria-label={s.label}
                 className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-[#F6B400] text-[#0B2545] font-black transition hover:brightness-95"
               >
-                {s.label === "Facebook" ? "f" : s.label === "Instagram" ? "◎" : s.label === "Twitter" ? "𝕏" : "in"}
+                {s.label === "Facebook"
+                  ? "f"
+                  : s.label === "Instagram"
+                  ? "◎"
+                  : s.label === "Twitter"
+                  ? "𝕏"
+                  : "in"}
               </a>
             ))}
 
-            {/* ✅ UPDATED LOGIN / DASHBOARD BUTTON */}
+            {/* Login / Dashboard */}
             {!authed ? (
               <Link
                 href="/login"
@@ -163,7 +196,11 @@ export default function Header() {
           <div className="relative flex h-[84px] items-center justify-between">
             {/* LOGO OVERHANG */}
             <div className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 z-0">
-              <Link href="/" className="pointer-events-auto inline-block" aria-label="Home">
+              <Link
+                href="/"
+                className="pointer-events-auto inline-block"
+                aria-label="Home"
+              >
                 <Image
                   src="/logo.png"
                   alt="Almost Heaven Staffing"
@@ -185,7 +222,7 @@ export default function Header() {
                       key={item.href}
                       href={item.href}
                       className={[
-                        "relative pb-2 text-[17px] font-extrabold",
+                        "relative pb-2 text-[17px] font-extrabold whitespace-nowrap", // ✅ added
                         active ? "text-[#F6B400]" : "text-[#24324A]",
                         "hover:text-[#F6B400]",
                       ].join(" ")}
@@ -203,25 +240,29 @@ export default function Header() {
 
                 // Dropdown
                 const active = resourcesHasActive;
+
                 return (
                   <div
                     key={item.label}
                     className="relative"
-                    onMouseEnter={() => setResourcesOpenDesktop(true)}
-                    onMouseLeave={() => setResourcesOpenDesktop(false)}
+                    onMouseEnter={openResources}
+                    onMouseLeave={closeResourcesWithDelay}
                   >
                     <button
                       type="button"
                       onClick={() => setResourcesOpenDesktop((v) => !v)}
                       className={[
-                        "relative pb-2 text-[17px] font-extrabold",
+                        // ✅ added inline-flex/items-center/nowrap so caret never drops
+                        "relative pb-2 text-[17px] font-extrabold inline-flex items-center whitespace-nowrap",
                         active ? "text-[#F6B400]" : "text-[#24324A]",
                         "hover:text-[#F6B400]",
                       ].join(" ")}
                       aria-expanded={resourcesOpenDesktop}
                       aria-haspopup="menu"
                     >
-                      Resources <span className="ml-1">⌄</span>
+                      <span>Resources</span>
+                      <span className="ml-1">⌄</span>
+
                       <span
                         className={[
                           "absolute left-0 -bottom-[6px] h-[3px] w-full bg-[#F6B400] transition",
@@ -230,29 +271,39 @@ export default function Header() {
                       />
                     </button>
 
+                    {/* ✅ FIXED DROPDOWN: no gap flicker + bridge */}
                     <div
                       className={[
-                        "absolute left-0 top-full mt-3 w-56 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden",
+                        "absolute left-0 top-full z-50",
                         resourcesOpenDesktop ? "block" : "hidden",
                       ].join(" ")}
                       role="menu"
+                      onMouseEnter={openResources}
+                      onMouseLeave={closeResourcesWithDelay}
                     >
-                      {item.items.map((dd) => {
-                        const ddActive = isActivePath(pathname, dd.href);
-                        return (
-                          <Link
-                            key={dd.href}
-                            href={dd.href}
-                            className={[
-                              "block px-4 py-3 text-sm font-extrabold transition",
-                              ddActive ? "bg-amber-50 text-[#0B2B55]" : "text-[#24324A] hover:bg-slate-50",
-                            ].join(" ")}
-                            role="menuitem"
-                          >
-                            {dd.label}
-                          </Link>
-                        );
-                      })}
+                      {/* hover bridge */}
+                      <div className="pt-2">
+                        <div className="w-56 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                          {item.items.map((dd) => {
+                            const ddActive = isActivePath(pathname, dd.href);
+                            return (
+                              <Link
+                                key={dd.href}
+                                href={dd.href}
+                                className={[
+                                  "block px-4 py-3 text-sm font-extrabold transition whitespace-nowrap", // ✅ optional nowrap
+                                  ddActive
+                                    ? "bg-amber-50 text-[#0B2B55]"
+                                    : "text-[#24324A] hover:bg-slate-50",
+                                ].join(" ")}
+                                role="menuitem"
+                              >
+                                {dd.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -265,13 +316,13 @@ export default function Header() {
               <div className="hidden md:flex items-center gap-4">
                 <Link
                   href="/apply"
-                  className="rounded-md bg-[#F6B400] px-7 py-3 text-sm font-extrabold text-[#0B2545] hover:brightness-95"
+                  className="rounded-md bg-[#F6B400] px-7 py-3 text-sm font-extrabold text-[#0B2545] hover:brightness-95 whitespace-nowrap"
                 >
                   Apply Now
                 </Link>
                 <Link
                   href="/request-staff"
-                  className="rounded-md border-[3px] border-[#0B2545] bg-white px-7 py-3 text-sm font-extrabold text-[#24324A] hover:bg-slate-50"
+                  className="rounded-md border-[3px] border-[#0B2545] bg-white px-7 py-3 text-sm font-extrabold text-[#24324A] hover:bg-slate-50 whitespace-nowrap"
                 >
                   Request Staff
                 </Link>
@@ -285,9 +336,20 @@ export default function Header() {
                 aria-expanded={mobileOpen}
                 className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
                   {mobileOpen ? (
-                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
                   ) : (
                     <path
                       d="M4 7h16M4 12h16M4 17h16"
@@ -332,18 +394,25 @@ export default function Header() {
                   }
 
                   return (
-                    <div key={item.label} className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div
+                      key={item.label}
+                      className="rounded-xl border border-slate-200 overflow-hidden"
+                    >
                       <button
                         type="button"
                         onClick={() => setResourcesOpenMobile((v) => !v)}
                         className={[
                           "w-full flex items-center justify-between px-4 py-3 text-sm font-extrabold",
-                          resourcesHasActive ? "bg-amber-50 text-[#0B2B55]" : "bg-white text-[#24324A]",
+                          resourcesHasActive
+                            ? "bg-amber-50 text-[#0B2B55]"
+                            : "bg-white text-[#24324A]",
                         ].join(" ")}
                         aria-expanded={resourcesOpenMobile}
                       >
                         <span>Resources</span>
-                        <span className="text-[#F6B400]">{resourcesOpenMobile ? "⌃" : "⌄"}</span>
+                        <span className="text-[#F6B400]">
+                          {resourcesOpenMobile ? "⌃" : "⌄"}
+                        </span>
                       </button>
 
                       <div className={resourcesOpenMobile ? "block" : "hidden"}>

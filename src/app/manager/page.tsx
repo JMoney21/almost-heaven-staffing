@@ -3,6 +3,7 @@ export const revalidate = 0;
 
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import LogoutButton from "./LogoutButton";
 
 function StatCard({
   label,
@@ -26,7 +27,15 @@ function StatCard({
   );
 }
 
-function RightCard({ title, children, href }: { title: string; children: any; href?: string }) {
+function RightCard({
+  title,
+  children,
+  href,
+}: {
+  title: string;
+  children: any;
+  href?: string;
+}) {
   return (
     <div className="rounded-3xl bg-white p-5 text-slate-900 shadow-2xl">
       <div className="flex items-center justify-between">
@@ -123,10 +132,14 @@ export default async function ManagerDashboard() {
   const rightJobs = (jobs ?? []).slice(0, 5);
 
   // 5) APPLICATIONS (counts + recent list)
-  // ✅ SHOW ALL APPLICATIONS (no facility filter)
   const stages = ["new", "reviewed", "interviewed", "hired"] as const;
 
-  const stageCounts: Record<string, number> = { new: 0, reviewed: 0, interviewed: 0, hired: 0 };
+  const stageCounts: Record<string, number> = {
+    new: 0,
+    reviewed: 0,
+    interviewed: 0,
+    hired: 0,
+  };
   let appsCountsError: string | null = null;
 
   for (const s of stages) {
@@ -146,7 +159,6 @@ export default async function ManagerDashboard() {
     .limit(4);
 
   // 6) EMPLOYEES + POINTS (leaderboard)
-  // expects a view named points_balances: facility_id, employee_user_id, total_points
   const { data: topPoints, error: pointsError } = await supabase
     .from("points_balances")
     .select("employee_user_id, total_points")
@@ -157,10 +169,7 @@ export default async function ManagerDashboard() {
   const employeeIds = (topPoints ?? []).map((x: any) => x.employee_user_id);
 
   const { data: employeeProfiles } = employeeIds.length
-    ? await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", employeeIds)
+    ? await supabase.from("profiles").select("user_id, full_name").in("user_id", employeeIds)
     : { data: [] as any[] };
 
   const topEmployees = (topPoints ?? []).map((row: any) => {
@@ -172,7 +181,7 @@ export default async function ManagerDashboard() {
     };
   });
 
-  // 7) Points awarded this month (optional, uses points_transactions)
+  // 7) Points awarded this month
   let pointsThisMonth = 0;
   let pointsThisMonthError: string | null = null;
 
@@ -196,15 +205,21 @@ export default async function ManagerDashboard() {
         <div className="flex items-end justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black">Welcome, {profile.full_name ?? "Manager"} 👋</h1>
-            <p className="mt-1 text-sm font-semibold text-white/75">Facility ID: {facilityId ?? "Not set"}</p>
+            <p className="mt-1 text-sm font-semibold text-white/75">
+              Facility ID: {facilityId ?? "Not set"}
+            </p>
           </div>
 
-          <a
-            href="/manager/jobs/new"
-            className="rounded-xl bg-[#F6B400] px-5 py-3 text-sm font-black text-[#0B2545] hover:brightness-95"
-          >
-            + Add New Job
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="/manager/jobs/new"
+              className="rounded-xl bg-[#F6B400] px-5 py-3 text-sm font-black text-[#0B2545] hover:brightness-95"
+            >
+              + Add New Job
+            </a>
+
+            <LogoutButton />
+          </div>
         </div>
 
         {/* Grid: LEFT + RIGHT */}
@@ -223,7 +238,7 @@ export default async function ManagerDashboard() {
               <StatCard label="Points Awarded" value={pointsThisMonth} sub="This month" />
             </div>
 
-            {/* Big Job Postings (your existing card, kept) */}
+            {/* Big Job Postings */}
             <div className="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-black text-[#0B2B55]">Job Postings</h2>
@@ -256,7 +271,7 @@ export default async function ManagerDashboard() {
               </div>
             </div>
 
-            {/* Left bottom placeholder (later: full Forms & Applications table) */}
+            {/* Forms placeholder */}
             <div className="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-black text-[#0B2B55]">Forms & Applications</h2>
@@ -279,7 +294,6 @@ export default async function ManagerDashboard() {
 
           {/* RIGHT column widgets */}
           <div className="space-y-6">
-            {/* Manage jobs widget */}
             <RightCard title="Manage Job Postings" href="/manager/jobs">
               <div className="space-y-3">
                 {rightJobs.length ? (
@@ -305,7 +319,6 @@ export default async function ManagerDashboard() {
               </div>
             </RightCard>
 
-            {/* Applications widget */}
             <RightCard title="Forms & Applications" href="/manager/applications">
               <div className="flex flex-wrap gap-2">
                 {["new", "reviewed", "interviewed", "hired"].map((k) => (
@@ -341,7 +354,6 @@ export default async function ManagerDashboard() {
               </div>
             </RightCard>
 
-            {/* Points widget */}
             <RightCard title="Employee Points & Rewards" href="/manager/points">
               <div className="space-y-3">
                 {topEmployees.length ? (

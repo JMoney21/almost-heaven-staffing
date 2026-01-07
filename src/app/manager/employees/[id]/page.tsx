@@ -11,6 +11,7 @@ import {
   endContractAction,
   deleteContractAction,
 } from "./actions";
+import { toggleComplianceTaskAction, saveComplianceNotesAction } from "./actionsCompliance";
 import LoginAccessCard from "./LoginAccessCard";
 
 type PageProps = {
@@ -50,11 +51,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
   const user = authData?.user;
   if (!user) redirect("/manager/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
 
   if (!profile || (profile.role !== "manager" && profile.role !== "admin")) redirect("/");
 
@@ -103,10 +100,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
   `;
 
   // JOBS FOR DROPDOWN
-  const { data: jobs, error: jobsErr } = await supabase
-    .from("jobs")
-    .select(JOB_SELECT)
-    .order("title", { ascending: true });
+  const { data: jobs, error: jobsErr } = await supabase.from("jobs").select(JOB_SELECT).order("title", { ascending: true });
 
   const jobsList = jobs ?? [];
 
@@ -140,13 +134,48 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
 
   const totalPoints = (transactions ?? []).reduce((sum: number, t: any) => sum + (Number(t.points) || 0), 0);
 
+  // ✅ COMPLIANCE
+  const { data: complianceRaw, error: complianceErr } = await supabase
+    .from("compliance_tasks")
+    .select(
+      "background_check, drug_screen, physical, tb_test, education, active_license, bls, acls, notes, updated_at"
+    )
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+
+  const compliance =
+    complianceRaw ??
+    ({
+      background_check: false,
+      drug_screen: false,
+      physical: false,
+      tb_test: false,
+      education: false,
+      active_license: false,
+      bls: false,
+      acls: false,
+      notes: "",
+      updated_at: null,
+    } as any);
+
+  const complianceItems = [
+    { key: "background_check", label: "Background Check" },
+    { key: "drug_screen", label: "Drug Screen" },
+    { key: "physical", label: "Physical" },
+    { key: "tb_test", label: "TB Test" },
+    { key: "education", label: "Education Verified" },
+    { key: "active_license", label: "Active Nursing License" },
+    { key: "bls", label: "BLS" },
+    { key: "acls", label: "ACLS" },
+  ] as const;
+
+  const completedCount = complianceItems.filter((i) => Boolean((compliance as any)[i.key])).length;
+
   return (
     <div className="min-h-screen bg-[#061A33] p-10 text-white">
       <div className="mx-auto max-w-4xl space-y-8">
         {errorMsg ? <div className="rounded-xl bg-amber-500/20 p-3 text-xs font-bold">{errorMsg}</div> : null}
-        {successMsg ? (
-          <div className="rounded-xl bg-emerald-500/20 p-3 text-xs font-bold">{successMsg}</div>
-        ) : null}
+        {successMsg ? <div className="rounded-xl bg-emerald-500/20 p-3 text-xs font-bold">{successMsg}</div> : null}
 
         {/* ✅ LOGIN TOOLS */}
         <LoginAccessCard
@@ -203,9 +232,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
               </select>
             </div>
 
-            <button className="w-full rounded-xl bg-[#F6B400] py-3 font-black text-[#0B2545]">
-              Save Employee
-            </button>
+            <button className="w-full rounded-xl bg-[#F6B400] py-3 font-black text-[#0B2545]">Save Employee</button>
           </form>
         </div>
 
@@ -230,9 +257,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
             ) : null}
 
             {jobsList.length === 0 ? (
-              <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-700">
-                No jobs available.
-              </div>
+              <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-700">No jobs available.</div>
             ) : (
               <form action={addContractAction.bind(null, employeeId)} className="mt-4 space-y-3">
                 <select name="job_id" required className="w-full rounded-xl border p-3 font-semibold" defaultValue="">
@@ -256,12 +281,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                   className="w-full rounded-xl border p-3 font-semibold"
                 />
 
-                <input
-                  name="start_date"
-                  type="date"
-                  required
-                  className="w-full rounded-xl border p-3 font-semibold"
-                />
+                <input name="start_date" type="date" required className="w-full rounded-xl border p-3 font-semibold" />
 
                 <button className="w-full rounded-xl bg-[#F6B400] py-3 font-black text-[#0B2545]">
                   Assign Contract
@@ -282,9 +302,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                 const hospitalName = job?.hospital_name ?? "";
                 const hospitalAddress = job?.hospital_address ?? "";
 
-                const jobEntries = job
-                  ? Object.entries(job).filter(([k, v]) => k !== "id" && v !== null && v !== "")
-                  : [];
+                const jobEntries = job ? Object.entries(job).filter(([k, v]) => k !== "id" && v !== null && v !== "") : [];
 
                 return (
                   <details key={c.id} className="rounded-2xl border p-4">
@@ -303,9 +321,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                           {hospitalName ? (
                             <div className="mt-1 text-xs font-bold text-slate-700">
                               {hospitalName}
-                              {hospitalAddress ? (
-                                <div className="text-xs font-semibold text-slate-500">{hospitalAddress}</div>
-                              ) : null}
+                              {hospitalAddress ? <div className="text-xs font-semibold text-slate-500">{hospitalAddress}</div> : null}
                             </div>
                           ) : null}
 
@@ -345,10 +361,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                     </div>
 
                     {/* EDIT CONTRACT */}
-                    <form
-                      action={updateContractAction.bind(null, employeeId, c.id)}
-                      className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4"
-                    >
+                    <form action={updateContractAction.bind(null, employeeId, c.id)} className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4">
                       <div className="grid gap-3 md:grid-cols-3">
                         <div>
                           <label className="text-xs font-extrabold text-slate-700">Status</label>
@@ -390,9 +403,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <button className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white">
-                          Save Changes
-                        </button>
+                        <button className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white">Save Changes</button>
 
                         <button
                           type="submit"
@@ -418,6 +429,93 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
           ) : (
             <div className="mt-3 text-sm font-semibold text-slate-600">No contracts yet.</div>
           )}
+        </div>
+
+        {/* ✅ COMPLIANCE */}
+        <div className="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-black text-[#0B2B55]">Compliance</h2>
+              <div className="mt-1 text-xs font-semibold text-slate-500">
+                {completedCount}/{complianceItems.length} completed
+                {compliance?.updated_at ? <> • Updated {new Date(compliance.updated_at).toLocaleString()}</> : null}
+              </div>
+            </div>
+
+            <span
+              className={[
+                "rounded-full px-3 py-1 text-xs font-extrabold",
+                completedCount === complianceItems.length ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
+              ].join(" ")}
+            >
+              {completedCount === complianceItems.length ? "Cleared" : "In Progress"}
+            </span>
+          </div>
+
+          {complianceErr ? (
+            <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-100 p-3 text-xs text-slate-700">
+              {complianceErr.message}
+            </pre>
+          ) : null}
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {complianceItems.map((item) => {
+              const done = Boolean((compliance as any)[item.key]);
+
+              return (
+                <form
+                  key={item.key}
+                  action={toggleComplianceTaskAction.bind(null, employeeId, item.key)}
+                  className="rounded-2xl border border-slate-200 p-4"
+                >
+                  <button type="submit" className="flex w-full items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={[
+                          "inline-flex h-8 w-8 items-center justify-center rounded-xl ring-1",
+                          done ? "bg-emerald-600 text-white ring-emerald-700" : "bg-slate-100 text-slate-500 ring-slate-200",
+                        ].join(" ")}
+                        aria-hidden="true"
+                      >
+                        {done ? "✓" : "○"}
+                      </span>
+
+                      <div className="text-left">
+                        <div className="text-sm font-black text-slate-900">{item.label}</div>
+                        <div className="text-xs font-semibold text-slate-500">
+                          Click to {done ? "mark incomplete" : "mark complete"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      className={[
+                        "rounded-full px-3 py-1 text-[11px] font-extrabold",
+                        done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600",
+                      ].join(" ")}
+                    >
+                      {done ? "Complete" : "Pending"}
+                    </span>
+                  </button>
+                </form>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+            <div className="text-xs font-extrabold text-slate-600">Compliance Notes</div>
+
+            <form action={saveComplianceNotesAction.bind(null, employeeId)} className="mt-3 space-y-3">
+              <textarea
+                name="notes"
+                defaultValue={(compliance as any).notes ?? ""}
+                placeholder="Add notes, due dates, doc status, vendor confirmation numbers, etc..."
+                className="h-28 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800"
+              />
+
+              <button className="w-full rounded-xl bg-slate-900 py-3 text-sm font-black text-white">Save Notes</button>
+            </form>
+          </div>
         </div>
 
         {/* POINTS */}
@@ -448,9 +546,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
               placeholder="Reason (shift pickup, bonus, etc)"
               className="w-full rounded-xl border p-3 font-semibold"
             />
-            <button className="w-full rounded-xl bg-slate-900 py-3 font-black text-white">
-              Award Points
-            </button>
+            <button className="w-full rounded-xl bg-slate-900 py-3 font-black text-white">Award Points</button>
           </form>
 
           <div className="mt-5 space-y-2">
